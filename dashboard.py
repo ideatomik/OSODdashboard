@@ -51,9 +51,9 @@ custom_css = {
 #pd.options.display.float_format = "{:,.2f}".format
 
 #colnames = ['transaction_id','created_date','event_type','token_id','payment_symbol','eth_price','usd_price','bid_amount','from_address','to_address']
-colnames = ['created_date','event_type','token_id','payment_symbol','usd_price','from_address','to_address']
+colnames = ['created_date','event_type','token_id','usd_price','from_address','to_address']
 #dtypes = {'transaction_id':object,'created_date':object,'event_type':object,'token_id':object,'payment_symbol':object,'eth_price':object,'usd_price':object,'bid_amount': object,'from_address':object,'to_address':object}
-dtypes = {'created_date':object,'event_type':object,'token_id':object,'payment_symbol':object,'usd_price':object,'from_address':object,'to_address':object}
+dtypes = {'created_date':object,'event_type':object,'token_id':object,'usd_price':object,'from_address':object,'to_address':object}
 
 params = {}
 
