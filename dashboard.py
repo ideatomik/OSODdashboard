@@ -1,4 +1,5 @@
 from datetime import timedelta
+import st_aggrid
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 import streamlit as st
 import pandas as pd
