@@ -1,0 +1,9 @@
+[server]
+maxUploadSize = 2400
+maxMessageSize = 2400
+
+[theme]
+base="dark"
+primaryColor="#590696"
+backgroundColor="#2c2342"
+secondaryBackgroundColor="#1a0d1e"
