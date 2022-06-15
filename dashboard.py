@@ -414,7 +414,7 @@ with loadarea:
             zerospercent = ( zerosales / totaltokens) * 100
 
             if collectionsize > 1:
-                st.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items haven't been sold.")
+                st.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had no sales.")
                 SalesChart(collectionsize,anysales)
             #endregion
 
