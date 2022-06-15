@@ -1,6 +1,6 @@
 from datetime import timedelta
-import streamlit as st
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+import streamlit as st
 import pandas as pd
 import requests
 from bokeh.themes import built_in_themes
