@@ -468,8 +468,11 @@ with loadarea:
             addressFromList.columns = ['Address','Sent Tokens','Listings Created','Offers Made','Bids Made','Bids Withdrawn', 'Sales']
             
             addressToList = df.groupby(['to_address', 'event_type']).size().unstack('event_type',0).reset_index()
+            if 'transfer' not in addressToList:
+                addressToList['transfer'] = 0
             if 'successful' not in addressToList:
                 addressToList['successful'] = 0
+            addressToList = addressToList[['to_address','transfer','successful']]
             addressToList.columns = ['Address','Received Tokens','Purchases']
             
             mergedAddresses = pd.merge(addressFromList,addressToList, on="Address", how="left")
