@@ -86,11 +86,11 @@ def dtypeFix(df):
     #      loadarea.warning("Error converting column 'eth_price' to float format")
     try: #usd_price
         with st.spinner(""):
-            df.usd_price = pd.to_numeric(df.usd_price, errors="coerce")
-        loadarea.success(f"column 'usd_price' converted to {df.usd_price.dtype}")
+            df.total_price = pd.to_numeric(df.total_price, errors="coerce")
+        loadarea.success(f"column 'total_price' converted to {df.total_price.dtype}")
     except:
-        loadarea.warning("Error converting column 'usd_price' to float format")
-    # try: #bid_amount
+        loadarea.warning("Error converting column 'total_price' to numeric format")
+    # try: #total_price
     #     with st.spinner(""):
     #         df.bid_amount = pd.to_numeric(df.bid_amount, errors="coerce")
     #     loadarea.success(f"column 'bid_amount' converted to {df.bid_amount.dtype}")
