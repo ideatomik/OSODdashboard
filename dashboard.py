@@ -419,13 +419,13 @@ with loadarea:
             #endregion
 
             #region Tokens Table
-            successfulList = df.query("event_type == 'successful'")
-            grosssales = successfulList.groupby('token_id')['usd_price'].sum().reset_index()
-            grosssales.columns = ['Token','Gross Value (USD)']  
-
-            tokensList = pd.merge(eventsCountList, grosssales, on="Token", how="left")
+            #successfulList = df.query("event_type == 'successful'")
+            #grosssales = successfulList.groupby('token_id')['usd_price'].sum().reset_index()
+            #grosssales.columns = ['Token','Gross Value (USD)']  
+            tokensList = eventsCountList
+            #tokensList = pd.merge(eventsCountList, grosssales, on="Token", how="left")
             tokensList.fillna(0,inplace=True)
-            tokensList['Gross Value (USD)'] = tokensList['Gross Value (USD)'].astype(float).round(2)   
+            #tokensList['Gross Value (USD)'] = tokensList['Gross Value (USD)'].astype(float).round(2)   
             if collectionsize == 1:
                 tokensList.drop(tokensList[tokensList['Token'] != 1].index, inplace=True)
 
