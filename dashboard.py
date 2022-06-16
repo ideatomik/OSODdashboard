@@ -50,10 +50,10 @@ custom_css = {
         
 #pd.options.display.float_format = "{:,.2f}".format
 
-#colnames = ['transaction_id','created_date','event_type','token_id','payment_symbol','eth_price','usd_price','bid_amount','from_address','to_address']
-colnames = ['created_date','event_type','token_id','usd_price','from_address','to_address']
-#dtypes = {'transaction_id':object,'created_date':object,'event_type':object,'token_id':object,'payment_symbol':object,'eth_price':object,'usd_price':object,'bid_amount': object,'from_address':object,'to_address':object}
-dtypes = {'created_date':object,'event_type':object,'token_id':object,'usd_price':object,'from_address':object,'to_address':object}
+#colnames = ['transaction_id','created_date','event_type','token_id','payment_symbol','eth_price','total_price','bid_amount','from_address','to_address']
+colnames = ['created_date','event_type','token_id','total_price','from_address','to_address']
+#dtypes = {'transaction_id':object,'created_date':object,'event_type':object,'token_id':object,'payment_symbol':object,'eth_price':object,'total_price':object,'bid_amount': object,'from_address':object,'to_address':object}
+dtypes = {'created_date':object,'event_type':object,'token_id':object,'total_price':object,'from_address':object,'to_address':object}
 
 params = {}
 
@@ -84,7 +84,7 @@ def dtypeFix(df):
     #      loadarea.success(f"column 'eth_price' converted to {df.eth_price.dtype}")
     # except:
     #      loadarea.warning("Error converting column 'eth_price' to float format")
-    try: #usd_price
+    try: #total_price
         with st.spinner(""):
             df.total_price = pd.to_numeric(df.total_price, errors="coerce")
         loadarea.success(f"column 'total_price' converted to {df.total_price.dtype}")
@@ -419,13 +419,12 @@ with loadarea:
             #endregion
 
             #region Tokens Table
-            #successfulList = df.query("event_type == 'successful'")
-            #grosssales = successfulList.groupby('token_id')['usd_price'].sum().reset_index()
-            #grosssales.columns = ['Token','Gross Value (USD)']  
-            tokensList = eventsCountList
-            #tokensList = pd.merge(eventsCountList, grosssales, on="Token", how="left")
+            successfulList = df.query("event_type == 'successful'")
+            grosssales = successfulList.groupby('token_id')['total_price'].sum().reset_index()            
+            grosssales.columns = ['Token','Gross Sales Value (ETH)']  
+            tokensList = pd.merge(eventsCountList, grosssales, on="Token", how="left")
             tokensList.fillna(0,inplace=True)
-            #tokensList['Gross Value (USD)'] = tokensList['Gross Value (USD)'].astype(float).round(2)   
+            tokensList['Gross Sales Value (ETH)'] = tokensList['Gross Sales Value (ETH)'].astype(float).round(3)   
             if collectionsize == 1:
                 tokensList.drop(tokensList[tokensList['Token'] != 1].index, inplace=True)
 
