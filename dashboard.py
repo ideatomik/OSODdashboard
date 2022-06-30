@@ -1,19 +1,21 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
+from numpy import datetime64, float64, int32
 import st_aggrid
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 import streamlit as st
 import pandas as pd
+from zipfile import ZipFile
 import requests
 from bokeh.themes import built_in_themes
 from bokeh.io import curdoc
 from bokeh.plotting import figure, ColumnDataSource
 from bokeh.models import DatetimeTickFormatter, Range1d, LinearAxis, HoverTool
+import wget
 
-#TODO 
-# Fill date gaps 
-
-#streamlit run dashboard.py --theme.backgroundColor "#2c2342" --theme.secondaryBackgroundColor "#1a0d1e" --theme.primaryColor "#590696" --theme.base dark --server.maxUploadSize 2400 --server.maxMessageSize 2400
-
+st.session_state.events = None
+st.session_state.tokens = None
+st.session_state.addresses = None
+st.session_state.slug = None
 
 st.set_page_config(
      page_title="OpenSea OpenData",
@@ -47,73 +49,23 @@ custom_css = {
             ".ag-theme-streamlit .ag-header" : { "border-bottom-color" : "#FF008E", "border-bottom-width": "2px", "background-color" : "#590696"},
             ".ag-header-cell-text" : {"font-weight" : "bold"}
         }
-        
-#pd.options.display.float_format = "{:,.2f}".format
+       
+global lotsaoffers
+lotsaoffers = False
 
-#colnames = ['transaction_id','created_date','event_type','token_id','payment_symbol','eth_price','total_price','bid_amount','from_address','to_address']
-colnames = ['created_date','event_type','token_id','total_price','from_address','to_address']
-#dtypes = {'transaction_id':object,'created_date':object,'event_type':object,'token_id':object,'payment_symbol':object,'eth_price':object,'total_price':object,'bid_amount': object,'from_address':object,'to_address':object}
-dtypes = {'created_date':object,'event_type':object,'token_id':object,'total_price':object,'from_address':object,'to_address':object}
+offershoverlabel = " offers"
+if lotsaoffers:
+    offershoverlabel = "k offers"
 
 params = {}
 
 #region Functions
 
-# Load the database with series set to 'object' (it's better to load them like that first, it's faster)
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def loadDf(upload):
-    with st.spinner("Loading data..."):
-        df = pd.read_csv(upload, skiprows=1, names=colnames, dtype=dtypes).fillna('')
-        st.session_state.thisdata = df 
-    return df
-
-# Set the datatypes for the dataframe series
-@st.cache(suppress_st_warning=True)
-def dtypeFix(df):
-    try: #token_id
-         with st.spinner(""):
-            df.token_id = pd.to_numeric(df.token_id, errors="coerce")
-            df.token_id = df.token_id.astype('Int64')
-         loadarea.success(f"column 'token_id' converted to {df.token_id.dtype}")
-    except:
-         loadarea.warning("Error converting column 'token_id' to int format")
-    
-    # try: #eth_price
-    #      with st.spinner(""):
-    #         df.eth_price = pd.to_numeric(df.eth_price, errors="coerce")
-    #      loadarea.success(f"column 'eth_price' converted to {df.eth_price.dtype}")
-    # except:
-    #      loadarea.warning("Error converting column 'eth_price' to float format")
-    try: #total_price
-        with st.spinner(""):
-            df.total_price = pd.to_numeric(df.total_price, errors="coerce")
-        loadarea.success(f"column 'total_price' converted to {df.total_price.dtype}")
-    except:
-        loadarea.warning("Error converting column 'total_price' to numeric format")
-    # try: #total_price
-    #     with st.spinner(""):
-    #         df.bid_amount = pd.to_numeric(df.bid_amount, errors="coerce")
-    #     loadarea.success(f"column 'bid_amount' converted to {df.bid_amount.dtype}")
-    # except:
-    #     loadarea.warning("Error converting column 'bid_amount' to float format")
-    try: #created_date
-        with st.spinner(""):
-            df.created_date = pd.created_date = pd.to_datetime(df.created_date, format="%Y-%m-%dT%H:%M:%S.%f", errors = 'coerce')
-        loadarea.success(f"column 'created_date' converted to {df.created_date.dtype}")
-    except:
-        loadarea.warning("Error converting column 'created_date' to date format")
-
-    # bid_amount, set to float... figure out when to cut
-    return df
-
-# [0] = Stats, [1] = name, [2] = token address
 def GetStats(slug):
     url = f"https://api.opensea.io/api/v1/collection/{slug}"
     headers = { "Accept": "application/json" } #"X-API-KEY": "9c0222976ecf45108830ba591d1f38c9" 
     data = requests.get(url, params=params, headers=headers).json()
     return data['collection']['stats'], data['collection']['name'], data['collection']['primary_asset_contracts'][0]['address']
-
-#return the contract address, name
 
 def HumanFormat(num, round_to=2):
     magnitude = 0
@@ -122,52 +74,10 @@ def HumanFormat(num, round_to=2):
         num = round(num / 1000.0, round_to)
     return '{:.{}f}{}'.format(num, round_to, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
 
-global lotsaoffers
-lotsaoffers = False
-
-def GetEvents():
-    with st.spinner("Parsing events..."):
-        df['day'] = pd.to_datetime(df['created_date']).dt.date
-        eventsList = df.groupby(['day', 'event_type']).size().unstack('event_type',0).reset_index()
-        if 'bid_entered' not in eventsList:
-                eventsList['bid_entered'] = 0
-        if 'bid_withdrawn' not in eventsList:
-            eventsList['bid_withdrawn'] = 0
-        if 'cancelled' not in eventsList:
-            eventsList['cancelled'] = 0
-        if 'created' not in eventsList:
-            eventsList['created'] = 0
-        if 'offer_entered' not in eventsList:
-            eventsList['offer_entered'] = 0
-        if 'successful' not in eventsList:
-            eventsList['successful'] = 0
-        if 'transfer' not in eventsList:
-            eventsList['transfer'] = 0
-        eventsList = eventsList[['day', 'bid_entered', 'bid_withdrawn', 'cancelled', 'created', 'offer_entered', 'successful', 'transfer']]
-        eventsList.columns = ['Date','Bids','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Sales','Transfers']
-
-
-        #eventsList['Withdrawn Bids'] = eventsList['Withdrawn Bids'] * -1
-        #eventsList['Cancelled Listings'] = eventsList['Cancelled Listings'] * -1
-        if eventsList['Offers'].max() > 10000:
-            eventsList['Offers'] = eventsList['Offers'] / 1000
-            eventsList.round(2)
-            global lotsaoffers 
-            lotsaoffers = True
-        eventsList['Floor'] = eventsList['Offers'] * 0
-        eventsList.set_index('Date')
-
-    return eventsList
-
-offershoverlabel = " offers"
-if lotsaoffers:
-    offershoverlabel = "k offers"
-
 def EventsChart(events):
     eventsdata = events[['Date','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Sales','Transfers','Bids','Floor']]
     posevents = ['Bids','New Listings','Transfers','Sales'] 
-    colors = ['#FFF600', '#FA26A0', '#892CDC', '#54E346']
-    #colors = ['#B000B9', '#FF5F7E', '#FFAB4C', '#B983FF']
+    colors = ['#FFF600', '#FA26A0', '#892CDC', '#54E346'] #FFF600
     
     p = figure(
         title = None,
@@ -330,50 +240,126 @@ def SalesChart(size,sales):
     p.xaxis.axis_line_width = 0.5
     p.xaxis.major_label_text_color = '#FF008E'
 
-    st.bokeh_chart(p)
+    maincontainer.bokeh_chart(p)
+
+#@st.cache(suppress_st_warning=True, allow_output_mutation=True)
+def loadZip(file):
+    with ZipFile(file, 'r') as zip:
+        packfiles = zip.namelist()
+    
+        #load and set up the events list
+        events = zip.open(packfiles[0])
+        eventsList = pd.read_csv(events)
+        #set type of events columns
+        eventsList.columns = ['Date','Bids','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Sales','Transfers']
+        eventsList['Date'] = eventsList['Date'].astype(datetime64)
+        eventsList['Bids'] = eventsList['Bids'].astype('Int64')
+        eventsList['Withdrawn Bids'] = eventsList['Withdrawn Bids'].astype('Int64')
+        eventsList['Cancelled Listings'] = eventsList['Cancelled Listings'].astype('Int64')
+        eventsList['New Listings'] = eventsList['New Listings'].astype('Int64')
+        eventsList['Offers'] = eventsList['Offers'].astype('Int64')
+        eventsList['Sales'] = eventsList['Sales'].astype('Int64')
+        eventsList['Transfers'] = eventsList['Transfers'].astype('Int64')
+        #check if we're dealing with a fuckton of automated offers; if so, we adjust the Offers column
+        if eventsList['Offers'].max() > 10000:
+            eventsList['Offers'] = eventsList['Offers'] / 1000
+            eventsList.round(2)
+            global lotsaoffers 
+            lotsaoffers = True
+        #add a Floor value to set up the area chart
+        eventsList['Floor'] = eventsList['Offers'] * 0
+        eventsList.set_index('Date')
+
+        # load and set up the addresses list
+        addresses = zip.open(packfiles[1])
+        addressesList = pd.read_csv(addresses)
+        addressesList.columns = ['Address','Listings Created','Sent Tokens','Received Tokens','Bids Made','Bids Withdrawn','Offers Made','Sales','Purchases','Collection Size']
+        # set types of addresses columns
+        addressesList['Listings Created'] = addressesList['Listings Created'].astype('Int64')
+        addressesList['Sent Tokens'] = addressesList['Sent Tokens'].astype('Int64')
+        addressesList['Received Tokens'] = addressesList['Received Tokens'].astype('Int64')
+        addressesList['Bids Made'] = addressesList['Bids Made'].astype('Int64')
+        addressesList['Bids Withdrawn'] = addressesList['Bids Withdrawn'].astype('Int64')
+        addressesList['Offers Made'] = addressesList['Offers Made'].astype('Int64')
+        addressesList['Sales'] = addressesList['Sales'].astype('Int64')
+        addressesList['Purchases'] = addressesList['Purchases'].astype('Int64')
+        addressesList['Collection Size'] = addressesList['Collection Size'].astype('Int64')
+
+        # load and setup the token events list
+        tokens = zip.open(packfiles[2])
+        tokensList = pd.read_csv(tokens)
+        tokensList.columns = ['Token', 'Bids Received', 'Bids Withdrawn', 'Cancelled Listings', 'Created Listings', 'Offers Received', 'Sales', 'Transfers','Gross Sales Value (ETH)']
+        #set type of tokens columns
+        tokensList['Token'] = tokensList['Token'].astype('Int64')
+        tokensList['Bids Received'] = tokensList['Bids Received'].astype('Int64')
+        tokensList['Bids Withdrawn'] = tokensList['Bids Withdrawn'].astype('Int64')
+        tokensList['Cancelled Listings'] = tokensList['Cancelled Listings'].astype('Int64')
+        tokensList['Created Listings'] = tokensList['Created Listings'].astype('Int64')
+        tokensList['Offers Received'] = tokensList['Offers Received'].astype('Int64')
+        tokensList['Sales'] = tokensList['Sales'].astype('Int64')
+        tokensList['Transfers'] = tokensList['Transfers'].astype('Int64')
+        tokensList['Gross Sales Value (ETH)'] = tokensList['Gross Sales Value (ETH)'].astype(float64)
+        
+        zip.close()
+
+    return eventsList, addressesList, tokensList
+
 
 #endregion Functions
-#urlfield = st.text_input('Paste the url in here')   
-loadarea = st.container()
-with loadarea:
-    #loaddf = st.file_uploader("Choose a file") 
-    urlfield = st.text_input('Paste the url in here')   
-    loaddf = st.button("Load dataset from link")
 
+loadarea = st.empty()
+with loadarea:
+    loaddf = None
+    package = None
+    #1C4V8kkXNp8UvUFoDRftJDqPcNEw9EsKI
+    c1, c2 = st.columns(2)
+    with c1:
+        tokenfield = st.text_input('Insert dataset token')
+        st.text('')
+        loaddf = st.button("Load")   
+    with c2:
+        st.text('')
+        
+        
+    
     if loaddf:    
-        nurl='https://drive.google.com/uc?id=' + urlfield.split('/')[-2]
-        #nrows=1
-        slug = pd.read_csv(nurl, nrows=0).columns.tolist()[0]
-        collectionInfo = GetStats(slug)
+        tokenurl ='https://drive.google.com/uc?id=' + tokenfield
+        package = wget.download(tokenurl)
+
+    #package  = None#st.file_uploader("Events List",  type="zip")  
+
+    
+    if package is not None:     
+        zipfiles = loadZip(package)   
+        #stringo = package.name
+        st.session_state.slug = "clonex" #stringo[:stringo.index(".")]
+        st.write(st.session_state.slug)
+        
+        st.session_state.events = zipfiles[0]
+        st.session_state.tokens = zipfiles[2]
+        st.session_state.addresses = zipfiles[1]
+        collectionInfo = GetStats(st.session_state.slug)
         stats = collectionInfo[0]
         collname = collectionInfo[1]
         tokenaddress = collectionInfo[2]
-        
 
-        with st.spinner("Loading..."):
-            data = loadDf(nurl)
-            
-            with st.spinner("Normalizing..."):
-                df = dtypeFix(data)
-            
-        loadarea.empty() 
-
-        # Get the events
-        events = GetEvents()
-
-        #get the stats
+        #region stats
         floorprice = stats['floor_price']
         totalvolume = HumanFormat(stats['total_volume']) 
         totalsales = int(stats['total_sales']) 
         collectionsize = int(stats['count'])
         averageprice = HumanFormat(stats['average_price'])
         owners = stats['num_owners']
-        metricscontainer = st.container()    
-        with metricscontainer:
+        maincontainer = st.container()    
+        with maincontainer:
             header = st.header(f"{collname} Collection Exploration")
-            st.subheader(f"An exploration with data from {events['Date'].min()} to {events['Date'].max()}")
-            #region stats
-            col1, col2, col3, col4, col5, col6 = metricscontainer.columns(6)
+            startDate = st.session_state.events['Date'].min()
+            startMonth = datetime.strptime(str(startDate.month), "%m").strftime("%B")                        
+            endDate = st.session_state.events['Date'].max()
+            endMonth = datetime.strptime(str(endDate.month), "%m").strftime("%B")
+            st.subheader(f"An exploration with data from {startMonth} {startDate.day}, {startDate.year} to {endMonth} {endDate.day}, {endDate.year}")
+            
+            col1, col2, col3, col4, col5, col6 = maincontainer.columns(6)
             
             col1.metric("Current floor price:", f"{floorprice}", delta="ETH", delta_color="off")
             col2.metric("Total Volume:", f"{totalvolume}", delta="ETH", delta_color="off")
@@ -382,58 +368,37 @@ with loadarea:
             col5.metric("Average Price:", f"{averageprice}", delta="ETH", delta_color="off")
             col6.metric("Collection size:", f"{collectionsize}", delta="items", delta_color="off")
             
-            #endregion stats
-                
-            #region events chart
-            metricscontainer.subheader('Collection Activity')
+        #endregion stats
 
-            st.bokeh_chart(EventsChart(events),use_container_width=True)        
-            #endregion events
-            
-            #region sales bar
-            #This is similar to Get Events, but grouped by token_id instead
-            eventsCountList = df.groupby(['token_id', 'event_type']).size().unstack('event_type',0).reset_index()
-            if 'bid_entered' not in eventsCountList:
-                eventsCountList['bid_entered'] = 0
-            if 'bid_withdrawn' not in eventsCountList:
-                eventsCountList['bid_withdrawn'] = 0
-            if 'cancelled' not in eventsCountList:
-                eventsCountList['cancelled'] = 0
-            if 'created' not in eventsCountList:
-                eventsCountList['created'] = 0
-            if 'offer_entered' not in eventsCountList:
-                eventsCountList['offer_entered'] = 0
-            if 'successful' not in eventsCountList:
-                eventsCountList['successful'] = 0
-            if 'transfer' not in eventsCountList:
-                eventsCountList['transfer'] = 0
-            eventsCountList = eventsCountList[['token_id', 'bid_entered', 'bid_withdrawn', 'cancelled', 'created', 'offer_entered', 'successful', 'transfer']]
-            eventsCountList.columns = ['Token', 'Bids Received', 'Bids Withdrawn', 'Cancelled Listings', 'Created Listings', 'Offers Received', 'Sales', 'Transfers']
-            
-            anysales = sum(eventsCountList['Sales'] > 0)
-            totaltokens = eventsCountList.shape[0]
-            zerosales = totaltokens - anysales
-            salespercent = (anysales / totaltokens) * 100
-            zerospercent = ( zerosales / totaltokens) * 100
+        #region events chart
+        maincontainer.subheader('Collection Activity')
+        maincontainer.bokeh_chart(EventsChart(st.session_state.events),use_container_width=True)        
+        #endregion events
+        maincontainer.empty()
+        #drop weird tokens in case it's a single drop collection
+        # if collectionsize == 1:
+        #         st.session_state.tokens.drop(st.session_state.tokens[st.session_state.tokens['Token'] != 1].index, inplace=True)
+        
+        anysales = sum(st.session_state.tokens['Sales'] > 0)
+        totaltokens = st.session_state.tokens.shape[0]
+        zerosales = totaltokens - anysales
+        salespercent = (anysales / totaltokens) * 100
+        zerospercent = ( zerosales / totaltokens) * 100
 
-            if collectionsize > 1:
-                st.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had no sales.")
-                SalesChart(collectionsize,anysales)
-            #endregion
+        if collectionsize > 1:
+            maincontainer.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had no sales.")
+            SalesChart(collectionsize,anysales)
+        
+        # if collectionsize == 1:
+        #         st.session_state.tokens.drop(st.session_state.tokens[st.session_state.tokens['Token'] != 1].index, inplace=True)
 
-            #region Tokens Table
-            successfulList = df.query("event_type == 'successful'")
-            grosssales = successfulList.groupby('token_id')['total_price'].sum().reset_index()            
-            grosssales.columns = ['Token','Gross Sales Value (ETH)']  
-            tokensList = pd.merge(eventsCountList, grosssales, on="Token", how="left")
-            tokensList.fillna(0,inplace=True)
-            tokensList['Gross Sales Value (ETH)'] = tokensList['Gross Sales Value (ETH)'].astype(float).round(3)   
-            if collectionsize == 1:
-                tokensList.drop(tokensList[tokensList['Token'] != 1].index, inplace=True)
+        maincontainer.empty()
+        maincontainer.empty()
 
-            st.empty()
-            st.subheader("Events by Token")        
-            gb = GridOptionsBuilder.from_dataframe(tokensList)
+        maincontainer.subheader("Events by Token") 
+        tableContainerOne = maincontainer.container()  
+        with tableContainerOne:
+            gb = GridOptionsBuilder.from_dataframe(st.session_state.tokens)
             gb.configure_column(
                 field = 'Token',
                 headerName = "Token",
@@ -441,53 +406,17 @@ with loadarea:
                     "tokencontract": tokenaddress 
                     },
                 cellRenderer = JsCode("""function(params) {return '<a href="https://opensea.io/assets/ethereum/' + params.tokencontract + '/' + params.value + '" target="_blank">'+ params.value+'</a>'}""")
-                
             )
-            
             go = gb.build()
-            AgGrid(tokensList,gridOptions=go, allow_unsafe_jscode=True, theme='streamlit', fit_columns_on_grid_load=True, width='100%', suppressRowHoverHighlight=True, custom_css=custom_css)
-            #endregion
+            AgGrid(st.session_state.tokens,gridOptions=go, allow_unsafe_jscode=True, theme='streamlit', fit_columns_on_grid_load=True, width='100%', suppressRowHoverHighlight=True, custom_css=custom_css)
 
-            st.empty()
-            st.empty()   
+        maincontainer.empty()
+        maincontainer.empty()
 
-            addressFromList = df.groupby(['from_address', 'event_type']).size().unstack('event_type',0).reset_index()      
-            
-            if 'transfer' not in addressFromList:
-                addressFromList['transfer'] = 0     
-            if 'created' not in addressFromList:
-                addressFromList['created'] = 0 
-            if 'offer_entered' not in addressFromList:
-                addressFromList['offer_entered'] = 0
-            if 'bid_withdrawn' not in addressFromList:
-                addressFromList['bid_withdrawn'] = 0 
-            if 'bid_entered' not in addressFromList:
-                addressFromList['bid_entered'] = 0  
-            if 'successful' not in addressFromList:
-                addressFromList['successful'] = 0 
-            
-            addressFromList = addressFromList[['from_address','transfer','created','offer_entered','bid_entered','bid_withdrawn','successful']]
-            addressFromList.columns = ['Address','Sent Tokens','Listings Created','Offers Made','Bids Made','Bids Withdrawn', 'Sales']
-            
-            addressToList = df.groupby(['to_address', 'event_type']).size().unstack('event_type',0).reset_index()
-            if 'transfer' not in addressToList:
-                addressToList['transfer'] = 0
-            if 'successful' not in addressToList:
-                addressToList['successful'] = 0
-            addressToList = addressToList[['to_address','transfer','successful']]
-            addressToList.columns = ['Address','Received Tokens','Purchases']
-            
-            mergedAddresses = pd.merge(addressFromList,addressToList, on="Address", how="left")
-            mergedAddresses.fillna(0,inplace=True)
-            mergedAddresses['Received Tokens'] = mergedAddresses['Received Tokens'].astype(int)
-            
-            mergedAddresses = mergedAddresses[['Address','Listings Created','Sent Tokens','Received Tokens','Bids Made','Bids Withdrawn','Offers Made','Sales','Purchases']] #remove sales and purchases
-
-            mergedAddresses['Collection Size'] = mergedAddresses['Received Tokens'] - mergedAddresses['Sent Tokens']
-
-            mergedAddresses.sort_values(by='Collection Size', inplace=True, ascending=False)
-
-            ga = GridOptionsBuilder.from_dataframe(mergedAddresses)
+        maincontainer.subheader("Events by Address") 
+        tableContainerTwo = maincontainer.container()
+        with tableContainerTwo:
+            ga = GridOptionsBuilder.from_dataframe(st.session_state.addresses)
             
             ga.configure_column(
                 field = 'Address',
@@ -495,7 +424,4 @@ with loadarea:
                 cellRenderer = JsCode("""function(params) {return '<a href="https://opensea.io/' + params.value + '" target="_blank">'+ params.value+'</a>'}""") ############# THE ERROR IS IN THIS LINE
             )
             go2 = ga.build()
-
-            st.subheader("Events by Address")  
-            
-            AgGrid(mergedAddresses,gridOptions=go2, allow_unsafe_jscode=True, theme='streamlit', fit_columns_on_grid_load=True, width='100%', suppressRowHoverHighlight=False,custom_css=custom_css)
+            AgGrid(st.session_state.addresses,gridOptions=go2, allow_unsafe_jscode=True, theme='streamlit', fit_columns_on_grid_load=True, width='100%', suppressRowHoverHighlight=False,custom_css=custom_css)
