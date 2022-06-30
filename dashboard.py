@@ -63,7 +63,7 @@ params = {}
 
 def GetStats(slug):
     url = f"https://api.opensea.io/api/v1/collection/{slug}"
-    headers = { "Accept": "application/json" } #"X-API-KEY": "9c0222976ecf45108830ba591d1f38c9" 
+    headers = { "Accept": "application/json" }
     data = requests.get(url, params=params, headers=headers).json()
     return data['collection']['stats'], data['collection']['name'], data['collection']['primary_asset_contracts'][0]['address']
 
@@ -75,9 +75,9 @@ def HumanFormat(num, round_to=2):
     return '{:.{}f}{}'.format(num, round_to, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
 
 def EventsChart(events):
-    eventsdata = events[['Date','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Sales','Transfers','Bids','Floor']]
-    posevents = ['Bids','New Listings','Transfers','Sales'] 
-    colors = ['#FFF600', '#FA26A0', '#892CDC', '#54E346'] #FFF600
+    eventsdata = events[['Date','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Collection Offers','Sales','Transfers','Bids','Floor']]
+    posevents = ['Collection Offers','Bids','New Listings','Transfers','Sales'] 
+    colors = ['#b021ce','#44cce2', '#FA26A0', '#892CDC', '#54E346'] #FFF600
     
     p = figure(
         title = None,
@@ -104,12 +104,12 @@ def EventsChart(events):
         y1 = 'Offers',
         y2 = 'Floor',
         source = eventsdata,
-        color = "#80FFDB",
+        color = "#83FFF6",
         legend_label = legendOffers,
-        fill_alpha = 0.35,
+        fill_alpha = 0.25,
         y_range_name="foo"
     )
-    # bids, transfers, sales
+    # bids, transfers, sales, listings, collection offers
     renderers = p.vbar_stack(
         source = eventsdata,
         stackers = posevents,
@@ -133,17 +133,17 @@ def EventsChart(events):
         x = 'Date',
         y = 'Offers',
         source = eventsdata,
-        color = "#80FFDB",
+        color = "#83FFF6", #80FFDB
         line_width = 0.7,
         y_range_name="foo"
     )
     #point
-    point = p.x(
+    point = p.circle(
         x = 'Date',
         y = 'Offers',
         source = eventsdata,
-        color = "#80FFDB",
-        size = 8,
+        color = "#83FFF6",#80FFDB
+        size = 5,
         y_range_name="foo"
     )
 
@@ -251,13 +251,14 @@ def loadZip(file):
         events = zip.open(packfiles[0])
         eventsList = pd.read_csv(events)
         #set type of events columns
-        eventsList.columns = ['Date','Bids','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Sales','Transfers']
+        eventsList.columns = ['Date','Bids','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Collection Offers','Sales','Transfers']
         eventsList['Date'] = eventsList['Date'].astype(datetime64)
         eventsList['Bids'] = eventsList['Bids'].astype('Int64')
         eventsList['Withdrawn Bids'] = eventsList['Withdrawn Bids'].astype('Int64')
         eventsList['Cancelled Listings'] = eventsList['Cancelled Listings'].astype('Int64')
         eventsList['New Listings'] = eventsList['New Listings'].astype('Int64')
         eventsList['Offers'] = eventsList['Offers'].astype('Int64')
+        eventsList['Collection Offers'] = eventsList['Collection Offers'].astype('Int64')
         eventsList['Sales'] = eventsList['Sales'].astype('Int64')
         eventsList['Transfers'] = eventsList['Transfers'].astype('Int64')
         #check if we're dealing with a fuckton of automated offers; if so, we adjust the Offers column
@@ -273,7 +274,7 @@ def loadZip(file):
         # load and set up the addresses list
         addresses = zip.open(packfiles[1])
         addressesList = pd.read_csv(addresses)
-        addressesList.columns = ['Address','Listings Created','Sent Tokens','Received Tokens','Bids Made','Bids Withdrawn','Offers Made','Sales','Purchases','Collection Size']
+        addressesList.columns = ['Address','Listings Created','Sent Tokens','Received Tokens','Bids Made','Bids Withdrawn','Offers Made','Collection Offers Made','Sales','Purchases','Collection Size']
         # set types of addresses columns
         addressesList['Listings Created'] = addressesList['Listings Created'].astype('Int64')
         addressesList['Sent Tokens'] = addressesList['Sent Tokens'].astype('Int64')
@@ -281,6 +282,7 @@ def loadZip(file):
         addressesList['Bids Made'] = addressesList['Bids Made'].astype('Int64')
         addressesList['Bids Withdrawn'] = addressesList['Bids Withdrawn'].astype('Int64')
         addressesList['Offers Made'] = addressesList['Offers Made'].astype('Int64')
+        addressesList['Collection Offers Made'] = addressesList['Collection Offers Made'].astype('Int64')
         addressesList['Sales'] = addressesList['Sales'].astype('Int64')
         addressesList['Purchases'] = addressesList['Purchases'].astype('Int64')
         addressesList['Collection Size'] = addressesList['Collection Size'].astype('Int64')
@@ -311,7 +313,6 @@ loadarea = st.empty()
 with loadarea:
     loaddf = None
     package = None
-    #1C4V8kkXNp8UvUFoDRftJDqPcNEw9EsKI
     c1, c2 = st.columns(2)
     with c1:
         tokenfield = st.text_input('Insert dataset token')
@@ -319,9 +320,7 @@ with loadarea:
         loaddf = st.button("Load")   
     with c2:
         st.text('')
-        
-        
-    
+
     if loaddf:    
         tokenurl ='https://drive.google.com/uc?id=' + tokenfield
         package = wget.download(tokenurl)
@@ -331,9 +330,12 @@ with loadarea:
     
     if package is not None:     
         zipfiles = loadZip(package)   
-        #stringo = package.name
-        st.session_state.slug = "clonex" #stringo[:stringo.index(".")]
-        st.write(st.session_state.slug)
+        stringo = str(package)
+        if " " in stringo:
+            st.session_state.slug = stringo[:stringo.index(" ")]
+        else:
+            st.session_state.slug = stringo[:stringo.index(".")]
+        st.write(f"Loading {st.session_state.slug} dataset")
         
         st.session_state.events = zipfiles[0]
         st.session_state.tokens = zipfiles[2]
@@ -352,7 +354,7 @@ with loadarea:
         owners = stats['num_owners']
         maincontainer = st.container()    
         with maincontainer:
-            header = st.header(f"{collname} Collection Exploration")
+            header = st.header(f"{collname} Collection")
             startDate = st.session_state.events['Date'].min()
             startMonth = datetime.strptime(str(startDate.month), "%m").strftime("%B")                        
             endDate = st.session_state.events['Date'].max()
@@ -396,6 +398,7 @@ with loadarea:
         maincontainer.empty()
 
         maincontainer.subheader("Events by Token") 
+        st.session_state.tokens.sort_values(by='Token', inplace=True)
         tableContainerOne = maincontainer.container()  
         with tableContainerOne:
             gb = GridOptionsBuilder.from_dataframe(st.session_state.tokens)
