@@ -63,7 +63,7 @@ params = {}
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def loadDf(upload):
     with st.spinner("Loading data..."):
-        df = pd.read_csv(upload, names=colnames, dtype=dtypes)
+        df = pd.read_csv(upload, skiprows=1, names=colnames, dtype=dtypes).fillna('')
         st.session_state.thisdata = df 
     return df
 
@@ -333,14 +333,17 @@ def SalesChart(size,sales):
     st.bokeh_chart(p)
 
 #endregion Functions
-
-loadarea = st.empty()
+#urlfield = st.text_input('Paste the url in here')   
+loadarea = st.container()
 with loadarea:
-    loaddf = st.file_uploader("Choose a file")    
+    #loaddf = st.file_uploader("Choose a file") 
+    urlfield = st.text_input('Paste the url in here')   
+    loaddf = st.button("Load dataset from link")
 
-    if loaddf is not None:    
-        st.write("Filename: ", loaddf.name)
-        slug =  loaddf.name.partition('OMData')[0]
+    if loaddf:    
+        nurl='https://drive.google.com/uc?id=' + urlfield.split('/')[-2]
+        #nrows=1
+        slug = pd.read_csv(nurl, nrows=0).columns.tolist()[0]
         collectionInfo = GetStats(slug)
         stats = collectionInfo[0]
         collname = collectionInfo[1]
@@ -348,11 +351,11 @@ with loadarea:
         
 
         with st.spinner("Loading..."):
-            data = loadDf(loaddf)
-            loadarea.success("Transactions Record successfully loaded.")
+            data = loadDf(nurl)
+            
             with st.spinner("Normalizing..."):
                 df = dtypeFix(data)
-            loadarea.success("Transactions Record successfully normalized.")
+            
         loadarea.empty() 
 
         # Get the events

@@ -1,6 +1,6 @@
 [server]
-maxUploadSize = 2400
-maxMessageSize = 2400
+maxUploadSize = 5400
+maxMessageSize = 5400
 headless = true
 
 [theme]
