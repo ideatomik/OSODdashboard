@@ -292,7 +292,7 @@ def loadZip(file):
         tokensList = pd.read_csv(tokens)
         tokensList.columns = ['Token', 'Bids Received', 'Bids Withdrawn', 'Cancelled Listings', 'Created Listings', 'Offers Received', 'Sales', 'Transfers','Gross Sales Value (ETH)']
         #set type of tokens columns
-        tokensList['Token'] = tokensList['Token'].astype('Int64')
+        #tokensList['Token'] = tokensList['Token'].astype('Int64')
         tokensList['Bids Received'] = tokensList['Bids Received'].astype('Int64')
         tokensList['Bids Withdrawn'] = tokensList['Bids Withdrawn'].astype('Int64')
         tokensList['Cancelled Listings'] = tokensList['Cancelled Listings'].astype('Int64')
