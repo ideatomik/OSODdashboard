@@ -388,9 +388,13 @@ with loadarea:
         maincontainer.bokeh_chart(EventsChart(st.session_state.events),use_container_width=True)        
         #endregion events
         maincontainer.empty()
+
         #drop weird tokens in case it's a single drop collection
-        # if collectionsize == 1:
-        #         st.session_state.tokens.drop(st.session_state.tokens[st.session_state.tokens['Token'] != 1].index, inplace=True)
+        bugtokens = st.session_state.tokens.query(f'Token > {collectionsize}')
+        bugsy = bugtokens.shape
+        print("bugged out: ",bugsy)
+        print(bugtokens)
+        st.session_state.tokens = pd.concat([st.session_state.tokens, bugtokens, bugtokens]).drop_duplicates(keep=False)
         
         anysales = sum(st.session_state.tokens['Sales'] > 0)
         totaltokens = st.session_state.tokens.shape[0]
@@ -402,8 +406,7 @@ with loadarea:
             maincontainer.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had had no sales.")
             SalesChart(collectionsize,anysales)
         
-        # if collectionsize == 1:
-        #         st.session_state.tokens.drop(st.session_state.tokens[st.session_state.tokens['Token'] != 1].index, inplace=True)
+
 
         maincontainer.empty()
         maincontainer.empty()
