@@ -91,7 +91,7 @@ def EventsChart(events):
     start = -0.06 * (events['Offers'].max() - events['Offers'].min())
     maxoffers = events['Offers'].max() 
     end = maxoffers + 100 - maxoffers % 100
-    p.extra_y_ranges = {"foo": Range1d(start=start, end=end)}
+    p.extra_y_ranges = {"foo": Range1d(start=0, end=end)}
     p.add_layout(LinearAxis(y_range_name="foo"), 'right')
 
     legendOffers = "Offers"
@@ -109,6 +109,7 @@ def EventsChart(events):
         fill_alpha = 0.25,
         y_range_name="foo"
     )
+    
     # bids, transfers, sales, listings, collection offers
     renderers = p.vbar_stack(
         source = eventsdata,
@@ -119,6 +120,11 @@ def EventsChart(events):
         legend_label = posevents,
         name=posevents
     )
+
+    p.y_range.start = 0
+    p.y_range.end = dayrange
+    p.y_range.range_padding = 500
+
     for r in renderers:
         hover = HoverTool(tooltips=[
             ("","@Date{%F}"),
@@ -242,7 +248,6 @@ def SalesChart(size,sales):
 
     maincontainer.bokeh_chart(p)
 
-#@st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def loadZip(file):
     with ZipFile(file, 'r') as zip:
         packfiles = zip.namelist()
@@ -270,6 +275,12 @@ def loadZip(file):
         #add a Floor value to set up the area chart
         eventsList['Floor'] = eventsList['Offers'] * 0
         eventsList.set_index('Date')
+
+        eventsRedux = eventsList.drop(['Date','Offers'], axis=1)
+        maxdaily = eventsRedux.sum(axis='columns', numeric_only=True)
+        maxday = maxdaily.max()
+        global dayrange
+        dayrange = maxday + 1000 - maxday % 1000
 
         # load and set up the addresses list
         addresses = zip.open(packfiles[1])
@@ -305,7 +316,6 @@ def loadZip(file):
         zip.close()
 
     return eventsList, addressesList, tokensList
-
 
 #endregion Functions
 
@@ -388,7 +398,7 @@ with loadarea:
         zerospercent = ( zerosales / totaltokens) * 100
 
         if collectionsize > 1:
-            maincontainer.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had no sales.")
+            maincontainer.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had had no sales.")
             SalesChart(collectionsize,anysales)
         
         # if collectionsize == 1:
