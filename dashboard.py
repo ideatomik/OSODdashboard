@@ -9,7 +9,7 @@ import requests
 from bokeh.themes import built_in_themes
 from bokeh.io import curdoc
 from bokeh.plotting import figure, ColumnDataSource
-from bokeh.models import DatetimeTickFormatter, Range1d, LinearAxis, HoverTool
+from bokeh.models import DatetimeTickFormatter, Range1d, LinearAxis, HoverTool, Legend
 import wget
 
 st.session_state.events = None
@@ -106,10 +106,11 @@ def EventsChart(events):
         source = eventsdata,
         color = "#83FFF6",
         legend_label = legendOffers,
+        #legend_group = legendOffers,
         fill_alpha = 0.25,
         y_range_name="foo"
     )
-    
+    p.add_layout(p.legend[0], 'below')
     # bids, transfers, sales, listings, collection offers
     renderers = p.vbar_stack(
         source = eventsdata,
