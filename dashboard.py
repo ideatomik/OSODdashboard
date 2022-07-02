@@ -255,9 +255,8 @@ def loadZip(file):
     
         #load and set up the events list
         events = zip.open(packfiles[0])
-        eventsList = pd.read_csv(events)
+        eventsList = pd.read_csv(events, names  = ['Date','Bids','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Collection Offers','Sales','Transfers'])
         #set type of events columns
-        eventsList.columns = ['Date','Bids','Withdrawn Bids','Cancelled Listings','New Listings','Offers','Collection Offers','Sales','Transfers']
         eventsList['Date'] = eventsList['Date'].astype(datetime64)
         eventsList['Bids'] = eventsList['Bids'].astype('Int64')
         eventsList['Withdrawn Bids'] = eventsList['Withdrawn Bids'].astype('Int64')
@@ -285,8 +284,7 @@ def loadZip(file):
 
         # load and set up the addresses list
         addresses = zip.open(packfiles[1])
-        addressesList = pd.read_csv(addresses)
-        addressesList.columns = ['Address','Listings Created','Sent Tokens','Received Tokens','Bids Made','Bids Withdrawn','Offers Made','Collection Offers Made','Sales','Purchases','Collection Size']
+        addressesList = pd.read_csv(addresses, names  = ['Address','Listings Created','Sent Tokens','Received Tokens','Bids Made','Bids Withdrawn','Offers Made','Collection Offers Made','Sales','Purchases','Collection Size'])
         # set types of addresses columns
         addressesList['Listings Created'] = addressesList['Listings Created'].astype('Int64')
         addressesList['Sent Tokens'] = addressesList['Sent Tokens'].astype('Int64')
@@ -301,8 +299,7 @@ def loadZip(file):
 
         # load and setup the token events list
         tokens = zip.open(packfiles[2])
-        tokensList = pd.read_csv(tokens)
-        tokensList.columns = ['Token', 'Bids Received', 'Bids Withdrawn', 'Cancelled Listings', 'Created Listings', 'Offers Received', 'Sales', 'Transfers','Gross Sales Value (ETH)']
+        tokensList = pd.read_csv(tokens, names = ['Token', 'Bids Received', 'Bids Withdrawn', 'Cancelled Listings', 'Created Listings', 'Offers Received', 'Sales', 'Transfers','Gross Sales Value (ETH)'])
         #set type of tokens columns
         #tokensList['Token'] = tokensList['Token'].astype('Int64')
         tokensList['Bids Received'] = tokensList['Bids Received'].astype('Int64')
@@ -390,9 +387,9 @@ with loadarea:
         maincontainer.empty()
 
         #drop weird tokens in case it's a single drop collection
-        # bugtokens = st.session_state.tokens.query(f'Token > {collectionsize}')
-        # bugsy = bugtokens.shape
-        # st.session_state.tokens = pd.concat([st.session_state.tokens, bugtokens, bugtokens]).drop_duplicates(keep=False)
+        bugtokens = st.session_state.tokens.query(f'Token > {collectionsize}')
+        bugsy = bugtokens.shape
+        st.session_state.tokens = pd.concat([st.session_state.tokens, bugtokens, bugtokens]).drop_duplicates(keep=False)
 
         if collectionsize > 1:       
             anysales = sum(st.session_state.tokens['Sales'] > 0)
