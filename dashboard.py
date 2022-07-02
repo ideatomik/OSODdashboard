@@ -390,13 +390,13 @@ with loadarea:
         maincontainer.empty()
 
         #drop weird tokens in case it's a single drop collection
-        bugtokens = st.session_state.tokens.query(f'Token > {collectionsize}')
-        bugsy = bugtokens.shape
-        print("bugged out: ",bugsy)
-        print(bugtokens)
-        st.session_state.tokens = pd.concat([st.session_state.tokens, bugtokens, bugtokens]).drop_duplicates(keep=False)
 
-        if collectionsize > 1:       
+
+        if collectionsize > 1:     
+            bugtokens = st.session_state.tokens.query(f'Token > {collectionsize}')
+            bugsy = bugtokens.shape
+            st.session_state.tokens = pd.concat([st.session_state.tokens, bugtokens, bugtokens]).drop_duplicates(keep=False)  
+            
             anysales = sum(st.session_state.tokens['Sales'] > 0)
             totaltokens = st.session_state.tokens.shape[0]
             zerosales = totaltokens - anysales
