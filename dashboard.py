@@ -124,7 +124,7 @@ def EventsChart(events):
 
     p.y_range.start = 0
     p.y_range.end = dayrange
-    p.y_range.range_padding = 500
+    p.y_range.range_padding = 0.9
 
     for r in renderers:
         hover = HoverTool(tooltips=[
