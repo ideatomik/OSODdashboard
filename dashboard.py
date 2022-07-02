@@ -395,14 +395,13 @@ with loadarea:
         print("bugged out: ",bugsy)
         print(bugtokens)
         st.session_state.tokens = pd.concat([st.session_state.tokens, bugtokens, bugtokens]).drop_duplicates(keep=False)
-        
-        anysales = sum(st.session_state.tokens['Sales'] > 0)
-        totaltokens = st.session_state.tokens.shape[0]
-        zerosales = totaltokens - anysales
-        salespercent = (anysales / totaltokens) * 100
-        zerospercent = ( zerosales / totaltokens) * 100
 
-        if collectionsize > 1:
+        if collectionsize > 1:       
+            anysales = sum(st.session_state.tokens['Sales'] > 0)
+            totaltokens = st.session_state.tokens.shape[0]
+            zerosales = totaltokens - anysales
+            salespercent = (anysales / totaltokens) * 100
+            zerospercent = ( zerosales / totaltokens) * 100
             maincontainer.subheader(f"In this period, {HumanFormat(salespercent)}% of the items of the collection have at least one sale. {HumanFormat(zerospercent)}% of the items had had no sales.")
             SalesChart(collectionsize,anysales)
         
